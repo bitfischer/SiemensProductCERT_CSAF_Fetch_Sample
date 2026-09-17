@@ -2,6 +2,39 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+## What is this?
+
+Companies that make hardware and software publish **security advisories**
+when a vulnerability is found in one of their products — a document saying
+what's affected, how serious it is, and what to do about it. Siemens
+ProductCERT publishes theirs in a standard machine-readable format called
+**CSAF**, so tools can download and process them automatically instead of a
+person reading each one by hand.
+
+This project is a small, self-contained demo ("proof of concept") of exactly
+that: a tool that downloads Siemens's ~800+ published advisories, checks each
+one's cryptographic signature to make sure it's genuine and hasn't been
+tampered with, and lays the results out in a simple web dashboard. It exists
+to demonstrate one specific fix — see below — in a small, runnable form that
+doesn't require any of the bigger system it was extracted from.
+
+It's built like a typical small web app, with two parts working together:
+
+- **Backend** — a Go program that talks to the Siemens servers, downloads
+  and verifies the advisories, and exposes the results over a small JSON API.
+- **Frontend** — a single web page (`web/index.html`) that runs in your
+  browser, with a "Fetch now" button and tables that fill in live as the
+  backend works.
+
+**Tech stack:** the backend is written in [Go](https://go.dev/); the
+frontend is one plain HTML/CSS/JavaScript file with no framework and no
+build step. The two are shipped as a single binary (the frontend is embedded
+into it) and can be packaged into a [Docker](https://www.docker.com/)
+container, or run directly with just a Go installation — see
+[Run](#run) below.
+
+## How it works
+
 A standalone CSAF/ROLIE fetch + verification pipeline, pointed at a single
 feed: **Siemens ProductCERT**
 (`https://cert-portal.siemens.com/productcert/csaf/provider-metadata.json`).

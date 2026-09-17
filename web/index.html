@@ -105,6 +105,17 @@
   .sev.LOW, .sev.NONE { color: var(--muted); }
   a { color: var(--accent); }
   .empty { padding: 20px 14px; color: var(--muted); font-size: 0.85rem; }
+
+  footer {
+    margin-top: 28px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.75rem;
+    text-align: center;
+  }
+  footer a { color: var(--muted); text-decoration: underline dotted; }
+  footer a:hover { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -141,6 +152,11 @@
       <div class="body" id="cveBody"><div class="empty">No CVEs fetched yet.</div></div>
     </div>
   </div>
+
+  <footer>
+    &copy; 2026 <a href="https://github.com/bitfischer" target="_blank" rel="noopener">Florian Fischer</a>
+    &middot; <a href="https://github.com/bitfischer/SiemensProductCERT_CSAF_Fetch_Sample/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+  </footer>
 
 <script>
 const feedUrlEl = document.getElementById('feedUrl');

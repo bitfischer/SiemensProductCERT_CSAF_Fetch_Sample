@@ -88,9 +88,9 @@ const (
 type Store struct {
 	mu sync.RWMutex
 
-	advisories map[string]*Advisory // keyed by TrackingID
-	cves       map[string]*CVE      // keyed by CVEID
-	log        []LogEntry
+	advisories     map[string]*Advisory // keyed by TrackingID
+	cves           map[string]*CVE      // keyed by CVEID
+	log            []LogEntry
 	rejectsThisRun int
 
 	status Status

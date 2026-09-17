@@ -1,6 +1,7 @@
 # Siemens ProductCERT CSAF Fetch
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/bitfischer/SiemensProductCERT_CSAF_Fetch_Sample/actions/workflows/ci.yml/badge.svg)](https://github.com/bitfischer/SiemensProductCERT_CSAF_Fetch_Sample/actions/workflows/ci.yml)
 
 ## What is this?
 
@@ -182,6 +183,18 @@ PORT=9090 go run .
 - `GET /api/log` — fetch trail (newest first)
 - `GET /api/advisories` — parsed advisories
 - `GET /api/cves` — parsed CVEs
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the
+dev workflow and, importantly, this project's intentionally narrow scope.
+Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Security
+
+Found a security issue in this code? See [SECURITY.md](SECURITY.md) for how
+to report it. This is an independent demo, not an official Siemens
+repository — do not report issues found here to Siemens ProductCERT.
 
 ## License
 

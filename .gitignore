@@ -1,0 +1,13 @@
+# Build output
+/spcert-fetch
+/siemenspcert-fetch
+
+# Go
+*.test
+*.out
+
+# Editor/OS cruft
+.vscode/
+.idea/
+*.swp
+.DS_Store

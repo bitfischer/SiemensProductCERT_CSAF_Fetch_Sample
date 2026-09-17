@@ -24,7 +24,7 @@ var privateIPBlocks []*net.IPNet
 
 func init() {
 	for _, cidr := range []string{
-		"0.0.0.0/8",     // "this host on this network" (RFC 1122) — 0.0.0.0 routes to localhost on some stacks
+		"0.0.0.0/8", // "this host on this network" (RFC 1122) — 0.0.0.0 routes to localhost on some stacks
 		"10.0.0.0/8",
 		"172.16.0.0/12",
 		"192.168.0.0/16",

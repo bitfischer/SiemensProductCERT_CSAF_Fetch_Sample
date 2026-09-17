@@ -1,6 +1,7 @@
 # Build output
 /spcert-fetch
 /siemenspcert-fetch
+*.exe
 
 # Go
 *.test

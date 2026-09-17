@@ -1,0 +1,276 @@
+<!--
+  Copyright (c) 2026 Florian Fischer
+
+  Use of this source code is governed by the MIT license found in the
+  LICENSE file in the project root.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Siemens ProductCERT CSAF Fetch</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0f1115;
+    --panel: #171a21;
+    --border: #262b36;
+    --text: #e6e8ec;
+    --muted: #8b93a3;
+    --accent: #4fa3ff;
+    --green: #3ecf8e;
+    --amber: #e0af4c;
+    --red: #e5576a;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  h1 { font-size: 1.25rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 0.85rem; margin-bottom: 20px; }
+  .sub code { color: var(--accent); }
+
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  button {
+    background: var(--accent);
+    color: #08131f;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 16px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .status-line { font-size: 0.85rem; color: var(--muted); }
+  .status-line.running { color: var(--amber); }
+  .status-line.error { color: var(--red); }
+
+  .stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    min-width: 110px;
+  }
+  .stat .n { font-size: 1.3rem; font-weight: 700; }
+  .stat .l { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat.verified .n { color: var(--green); }
+  .stat.rejected .n { color: var(--red); }
+  .stat.unverified .n { color: var(--amber); }
+
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .panels { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel h2 {
+    font-size: 0.85rem;
+    margin: 0;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .panel .body { max-height: 520px; overflow-y: auto; }
+
+  .log-entry { padding: 6px 14px; border-bottom: 1px solid var(--border); font-size: 0.8rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .log-entry .t { color: var(--muted); margin-right: 8px; }
+  .log-entry.warn { color: var(--amber); }
+  .log-entry.error { color: var(--red); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th, td { text-align: left; padding: 7px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; position: sticky; top: 0; background: var(--panel); }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; }
+  .badge.verified { background: rgba(62,207,142,0.15); color: var(--green); }
+  .badge.unverified { background: rgba(224,175,76,0.15); color: var(--amber); }
+  .sev { font-weight: 600; }
+  .sev.CRITICAL { color: var(--red); }
+  .sev.HIGH { color: #f08a4b; }
+  .sev.MEDIUM { color: var(--amber); }
+  .sev.LOW, .sev.NONE { color: var(--muted); }
+  a { color: var(--accent); }
+  .empty { padding: 20px 14px; color: var(--muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+  <h1>Siemens ProductCERT — CSAF Fetch</h1>
+  <div class="sub">Standalone CSAF/ROLIE fetch + verification pipeline, targeting <code id="feedUrl"></code></div>
+
+  <div class="toolbar">
+    <button id="fetchBtn">Fetch now</button>
+    <span id="statusLine" class="status-line">idle</span>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="n" id="advCount">0</div><div class="l">Advisories</div></div>
+    <div class="stat"><div class="n" id="cveCount">0</div><div class="l">CVEs</div></div>
+    <div class="stat verified"><div class="n" id="verifiedCount">0</div><div class="l">Verified</div></div>
+    <div class="stat rejected"><div class="n" id="rejectedCount">0</div><div class="l">Rejected</div></div>
+    <div class="stat unverified"><div class="n" id="unverifiedCount">0</div><div class="l">Unverified</div></div>
+  </div>
+
+  <div class="panels">
+    <div class="panel">
+      <h2>Fetch log</h2>
+      <div class="body" id="logBody"><div class="empty">No fetch run yet.</div></div>
+    </div>
+    <div class="panel">
+      <h2>Advisories</h2>
+      <div class="body" id="advBody"><div class="empty">No advisories fetched yet.</div></div>
+    </div>
+  </div>
+
+  <div class="panels" style="margin-top:16px;">
+    <div class="panel" style="grid-column: 1 / -1;">
+      <h2>CVEs</h2>
+      <div class="body" id="cveBody"><div class="empty">No CVEs fetched yet.</div></div>
+    </div>
+  </div>
+
+<script>
+const feedUrlEl = document.getElementById('feedUrl');
+feedUrlEl.textContent = 'cert-portal.siemens.com/productcert/csaf';
+
+const fetchBtn = document.getElementById('fetchBtn');
+const statusLine = document.getElementById('statusLine');
+
+let polling = null;
+
+fetchBtn.addEventListener('click', async () => {
+  const res = await fetch('/api/fetch', { method: 'POST' });
+  if (res.status === 409) {
+    statusLine.textContent = 'a fetch is already running';
+    return;
+  }
+  startPolling();
+});
+
+function fmtTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleTimeString();
+}
+
+async function refreshStatus() {
+  const res = await fetch('/api/status');
+  const s = await res.json();
+
+  document.getElementById('advCount').textContent = s.advisory_count || 0;
+  document.getElementById('cveCount').textContent = s.cve_count || 0;
+  document.getElementById('verifiedCount').textContent = s.verified_count || 0;
+  document.getElementById('rejectedCount').textContent = s.rejected_count || 0;
+  document.getElementById('unverifiedCount').textContent = s.unverified_count || 0;
+
+  fetchBtn.disabled = !!s.running;
+  statusLine.className = 'status-line';
+  if (s.running) {
+    statusLine.classList.add('running');
+    statusLine.textContent = s.progress ? s.progress : 'fetching…';
+  } else if (s.last_error) {
+    statusLine.classList.add('error');
+    statusLine.textContent = 'error: ' + s.last_error;
+  } else if (s.finished_at) {
+    statusLine.textContent = 'last run finished ' + fmtTime(s.finished_at);
+  } else {
+    statusLine.textContent = 'idle — click "Fetch now" to pull the Siemens ProductCERT feed';
+  }
+  return s.running;
+}
+
+async function refreshLog() {
+  const res = await fetch('/api/log');
+  const entries = await res.json();
+  const body = document.getElementById('logBody');
+  if (!entries || entries.length === 0) {
+    body.innerHTML = '<div class="empty">No fetch run yet.</div>';
+    return;
+  }
+  body.innerHTML = entries.map(e =>
+    `<div class="log-entry ${e.level}"><span class="t">${fmtTime(e.time)}</span>${escapeHtml(e.message)}</div>`
+  ).join('');
+}
+
+async function refreshAdvisories() {
+  const res = await fetch('/api/advisories');
+  const rows = await res.json();
+  const body = document.getElementById('advBody');
+  if (!rows || rows.length === 0) {
+    body.innerHTML = '<div class="empty">No advisories fetched yet.</div>';
+    return;
+  }
+  const html = ['<table><thead><tr><th>Tracking ID</th><th>Title</th><th>Sev</th><th>CVEs</th><th>Status</th></tr></thead><tbody>'];
+  for (const a of rows) {
+    html.push(`<tr>
+      <td><a href="${a.advisory_url}" target="_blank" rel="noopener">${escapeHtml(a.tracking_id)}</a></td>
+      <td>${escapeHtml(a.title || '')}</td>
+      <td class="sev ${a.aggregate_severity || ''}">${a.aggregate_severity || ''}</td>
+      <td>${(a.cve_ids || []).length}</td>
+      <td><span class="badge ${a.verification}">${a.verification}</span></td>
+    </tr>`);
+  }
+  html.push('</tbody></table>');
+  body.innerHTML = html.join('');
+}
+
+async function refreshCVEs() {
+  const res = await fetch('/api/cves');
+  const rows = await res.json();
+  const body = document.getElementById('cveBody');
+  if (!rows || rows.length === 0) {
+    body.innerHTML = '<div class="empty">No CVEs fetched yet.</div>';
+    return;
+  }
+  const html = ['<table><thead><tr><th>CVE ID</th><th>Title</th><th>Sev</th><th>CVSS3</th><th>Products</th></tr></thead><tbody>'];
+  for (const c of rows) {
+    html.push(`<tr>
+      <td><a href="${c.advisory_url}" target="_blank" rel="noopener">${escapeHtml(c.cve_id)}</a></td>
+      <td>${escapeHtml(c.title || '')}</td>
+      <td class="sev ${c.severity || ''}">${c.severity || ''}</td>
+      <td>${c.cvss3_score ? c.cvss3_score.toFixed(1) : ''}</td>
+      <td>${escapeHtml((c.products || []).slice(0, 4).join(', '))}</td>
+    </tr>`);
+  }
+  html.push('</tbody></table>');
+  body.innerHTML = html.join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+async function tick() {
+  const running = await refreshStatus();
+  await Promise.all([refreshLog(), refreshAdvisories(), refreshCVEs()]);
+  return running;
+}
+
+function startPolling() {
+  if (polling) clearInterval(polling);
+  polling = setInterval(async () => {
+    const running = await tick();
+    if (!running) {
+      clearInterval(polling);
+      polling = null;
+    }
+  }, 1200);
+}
+
+tick();
+</script>
+</body>
+</html>

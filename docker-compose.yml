@@ -1,0 +1,11 @@
+# Copyright (c) 2026 Florian Fischer
+#
+# Use of this source code is governed by the MIT license found in the
+# LICENSE file in the project root.
+
+services:
+  spcert-fetch:
+    build: .
+    ports:
+      - "8085:8080"
+    restart: unless-stopped

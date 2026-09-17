@@ -104,6 +104,8 @@ demonstrate that fix.
 
 ## Run
 
+### With Docker
+
 ```bash
 docker compose up --build
 ```
@@ -113,10 +115,31 @@ Then open <http://localhost:8080> and click **Fetch now**. A full run
 incrementally — unchanged advisories are skipped via the ROLIE feed's
 conditional GET (`ETag`/`Last-Modified`) and per-entry `updated` timestamps.
 
-Or run it directly:
+### Without Docker
+
+Requires [Go](https://go.dev/dl/) 1.25 or newer (see `go.mod`); no other
+dependencies are needed — the frontend is embedded into the binary via
+`go:embed` (`main.go`), so there's nothing to separately build or serve.
+
+Run it in place, no build step:
 
 ```bash
 go run .
+```
+
+Or build a standalone binary and run that (matches what the Dockerfile does,
+just without the container):
+
+```bash
+go build -o spcert-fetch .
+./spcert-fetch
+```
+
+Either way it listens on `:8080` by default; open <http://localhost:8080> and
+click **Fetch now** as above. Set `PORT` to use a different port:
+
+```bash
+PORT=9090 go run .
 ```
 
 ## API

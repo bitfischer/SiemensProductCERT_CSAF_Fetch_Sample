@@ -45,8 +45,8 @@ while the stat tiles and tables update incrementally:
 
 ![Fetch in progress — live signature verification log, advisory and CVE tables filling in](docs/screenshots/running.png)
 
-**Complete** — a full run against `cert-portal.siemens.com`: 841 advisories,
-5,387 CVEs, all 841 verified via OpenPGP signature, zero rejected, zero
+**Complete** — a full run against `cert-portal.siemens.com`: advisories,
+and CVEs fetched and all verified via OpenPGP signature, zero rejected, zero
 unverified:
 
 ![Fetch complete — 841 advisories verified, 5,387 CVEs, zero rejected/unverified](docs/screenshots/complete.png)

@@ -83,7 +83,20 @@ while the stat tiles and tables update incrementally:
 and CVEs fetched and all verified via OpenPGP signature, zero rejected, zero
 unverified:
 
-![Fetch complete — 841 advisories verified, 5,387 CVEs, zero rejected/unverified](docs/screenshots/complete.png)
+![Fetch complete — 841 advisories verified, 5,387 CVEs, 49 known exploited, zero rejected/unverified](docs/screenshots/complete.png)
+
+**Known exploited vulnerabilities (CISA KEV)** — after the Siemens fetch, the
+tool downloads the [CISA KEV catalog](https://www.cisa.gov/known-exploited-vulnerabilities-catalog)
+and matches it against the Siemens CVE IDs. The "Known exploited (KEV)" tile
+counts the matches (49 of 5,387 in this run), the advisories table shows how
+many CVEs of each advisory are listed, and every matching CVE gets a red
+`KEV` badge (hover for the date added, due date and required action; a
+`ransomware` badge marks CVEs with known ransomware-campaign use). The
+**KEV only** switch in the CVE panel filters the table down to the matching
+CVEs. If the KEV download fails, the run still succeeds — the tile shows `–`
+and no CVEs are flagged.
+
+![CVE table filtered with the KEV only switch — only CVEs listed in the CISA KEV catalog](docs/screenshots/kev.png)
 
 ## Scope
 
@@ -132,6 +145,7 @@ demonstrate that fix.
 | `safehttp.go` | SSRF-safe HTTP client (blocks private/loopback/link-local dial targets, blocks https→http redirect downgrade) |
 | `guard.go` | Size-capped reads, panic recovery per worker/run |
 | `verify.go` | OpenPGP signature + hash verification, tampered-vs-unavailable policy, the rate-limiting fix |
+| `kev.go` | Fetches the CISA KEV catalog and matches it to Siemens CVEs |
 | `parse.go` | Pure CSAF JSON → CVE/Advisory parsing |
 | `rolie.go` | Provider-metadata + ROLIE feed walk, bounded worker pool, conditional-GET incremental fetch |
 
@@ -182,7 +196,7 @@ PORT=9090 go run .
 - `GET /api/status` — running state, live progress, verified/rejected/unverified counters
 - `GET /api/log` — fetch trail (newest first)
 - `GET /api/advisories` — parsed advisories
-- `GET /api/cves` — parsed CVEs
+- `GET /api/cves` — parsed CVEs; each carries a `kev` object when the CVE is listed in the CISA Known Exploited Vulnerabilities catalog
 
 ## Contributing
 

@@ -103,6 +103,17 @@
   .sev.HIGH { color: #f08a4b; }
   .sev.MEDIUM { color: var(--amber); }
   .sev.LOW, .sev.NONE { color: var(--muted); }
+  .badge.kev { background: rgba(229,87,106,0.15); color: var(--red); }
+  .badge.ransom { background: var(--red); color: #1a0509; margin-left: 4px; }
+  .stat.kev .n { color: var(--red); }
+  .panel h2.with-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .switch .track { width: 34px; height: 18px; border-radius: 9px; background: var(--border); position: relative; transition: background .15s; }
+  .switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--text); transition: transform .15s; }
+  .switch input:checked + .track { background: var(--red); }
+  .switch input:checked + .track::after { transform: translateX(16px); }
+  .switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
   a { color: var(--accent); }
   .empty { padding: 20px 14px; color: var(--muted); font-size: 0.85rem; }
 
@@ -132,6 +143,7 @@
     <div class="stat"><div class="n" id="cveCount">0</div><div class="l">CVEs</div></div>
     <div class="stat verified"><div class="n" id="verifiedCount">0</div><div class="l">Verified</div></div>
     <div class="stat rejected"><div class="n" id="rejectedCount">0</div><div class="l">Rejected</div></div>
+    <div class="stat kev" title="Siemens CVEs listed in the CISA Known Exploited Vulnerabilities catalog"><div class="n" id="kevCount">0</div><div class="l">Known exploited (KEV)</div></div>
     <div class="stat unverified"><div class="n" id="unverifiedCount">0</div><div class="l">Unverified</div></div>
   </div>
 
@@ -148,7 +160,10 @@
 
   <div class="panels" style="margin-top:16px;">
     <div class="panel" style="grid-column: 1 / -1;">
-      <h2>CVEs</h2>
+      <h2 class="with-toggle">
+        <span>CVEs</span>
+        <label class="switch"><input type="checkbox" id="kevToggle"><span class="track"></span><span>KEV only</span></label>
+      </h2>
       <div class="body" id="cveBody"><div class="empty">No CVEs fetched yet.</div></div>
     </div>
   </div>
@@ -191,6 +206,7 @@ async function refreshStatus() {
   document.getElementById('verifiedCount').textContent = s.verified_count || 0;
   document.getElementById('rejectedCount').textContent = s.rejected_count || 0;
   document.getElementById('unverifiedCount').textContent = s.unverified_count || 0;
+  document.getElementById('kevCount').textContent = s.kev_loaded ? (s.kev_count || 0) : '–';
 
   fetchBtn.disabled = !!s.running;
   statusLine.className = 'status-line';
@@ -229,13 +245,14 @@ async function refreshAdvisories() {
     body.innerHTML = '<div class="empty">No advisories fetched yet.</div>';
     return;
   }
-  const html = ['<table><thead><tr><th>Tracking ID</th><th>Title</th><th>Sev</th><th>CVEs</th><th>Status</th></tr></thead><tbody>'];
+  const html = ['<table><thead><tr><th>Tracking ID</th><th>Title</th><th>Sev</th><th>CVEs</th><th>KEV</th><th>Status</th></tr></thead><tbody>'];
   for (const a of rows) {
     html.push(`<tr>
       <td><a href="${a.advisory_url}" target="_blank" rel="noopener">${escapeHtml(a.tracking_id)}</a></td>
       <td>${escapeHtml(a.title || '')}</td>
       <td class="sev ${a.aggregate_severity || ''}">${a.aggregate_severity || ''}</td>
       <td>${(a.cve_ids || []).length}</td>
+      <td>${a.kev_count ? `<span class="badge kev">${a.kev_count}</span>` : ''}</td>
       <td><span class="badge ${a.verification}">${a.verification}</span></td>
     </tr>`);
   }
@@ -243,21 +260,45 @@ async function refreshAdvisories() {
   body.innerHTML = html.join('');
 }
 
+let cveRows = [];
+const kevToggle = document.getElementById('kevToggle');
+try { kevToggle.checked = localStorage.getItem('kevOnly') === '1'; } catch (e) {}
+kevToggle.addEventListener('change', () => {
+  try { localStorage.setItem('kevOnly', kevToggle.checked ? '1' : '0'); } catch (e) {}
+  renderCVEs();
+});
+
 async function refreshCVEs() {
   const res = await fetch('/api/cves');
-  const rows = await res.json();
+  cveRows = (await res.json()) || [];
+  renderCVEs();
+}
+
+function renderCVEs() {
   const body = document.getElementById('cveBody');
-  if (!rows || rows.length === 0) {
+  if (cveRows.length === 0) {
     body.innerHTML = '<div class="empty">No CVEs fetched yet.</div>';
     return;
   }
-  const html = ['<table><thead><tr><th>CVE ID</th><th>Title</th><th>Sev</th><th>CVSS3</th><th>Products</th></tr></thead><tbody>'];
+  const rows = kevToggle.checked ? cveRows.filter(c => c.kev) : cveRows;
+  if (rows.length === 0) {
+    body.innerHTML = '<div class="empty">No CVEs listed in the CISA KEV catalog.</div>';
+    return;
+  }
+  const html = ['<table><thead><tr><th>CVE ID</th><th>Title</th><th>Sev</th><th>CVSS3</th><th>KEV</th><th>Products</th></tr></thead><tbody>'];
   for (const c of rows) {
+    let kev = '';
+    if (c.kev) {
+      const tip = `Added ${c.kev.date_added || '?'}, due ${c.kev.due_date || '?'}: ${c.kev.required_action || ''}`;
+      kev = `<span class="badge kev" title="${escapeHtml(tip)}">KEV</span>` +
+        (c.kev.ransomware_use === 'Known' ? '<span class="badge ransom" title="Known ransomware campaign use">ransomware</span>' : '');
+    }
     html.push(`<tr>
-      <td><a href="${c.advisory_url}" target="_blank" rel="noopener">${escapeHtml(c.cve_id)}</a></td>
+      <td><a href="${escapeHtml(c.advisory_url || '')}" target="_blank" rel="noopener">${escapeHtml(c.cve_id)}</a></td>
       <td>${escapeHtml(c.title || '')}</td>
       <td class="sev ${c.severity || ''}">${c.severity || ''}</td>
       <td>${c.cvss3_score ? c.cvss3_score.toFixed(1) : ''}</td>
+      <td>${kev}</td>
       <td>${escapeHtml((c.products || []).slice(0, 4).join(', '))}</td>
     </tr>`);
   }

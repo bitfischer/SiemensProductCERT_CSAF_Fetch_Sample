@@ -130,6 +130,11 @@ func runFetch() {
 		return fetchProviderMetadata(ctx, store, feedURL)
 	})
 
+	if err == nil {
+		store.setProgress("matching against CISA KEV catalog…")
+		refreshKEV(ctx, store)
+	}
+
 	now := time.Now()
 	store.mu.Lock()
 	store.lastFetched = &now

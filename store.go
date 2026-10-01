@@ -11,6 +11,7 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 )
@@ -37,6 +38,7 @@ type CVE struct {
 	Products      []string    `json:"products,omitempty"`
 	References    []Reference `json:"references,omitempty"`
 	AdvisoryURL   string      `json:"advisory_url,omitempty"`
+	KEV           *KEVInfo    `json:"kev,omitempty"` // set when listed in the CISA KEV catalog
 }
 
 // Advisory is the document-level record — one CSAF document, keyed on its
@@ -52,6 +54,7 @@ type Advisory struct {
 	Vendors           []string  `json:"vendors,omitempty"`
 	Products          []string  `json:"products,omitempty"`
 	CVEIDs            []string  `json:"cve_ids"`
+	KEVCount          int       `json:"kev_count"`    // CVEs of this advisory listed in CISA KEV
 	Verification      string    `json:"verification"` // "verified" | "unverified"
 }
 
@@ -74,6 +77,8 @@ type Status struct {
 	UnverifiedCount int       `json:"unverified_count"`
 	AdvisoryCount   int       `json:"advisory_count"`
 	CVECount        int       `json:"cve_count"`
+	KEVCount        int       `json:"kev_count"`  // Siemens CVEs listed in CISA KEV
+	KEVLoaded       bool      `json:"kev_loaded"` // KEV catalog available
 }
 
 const (
@@ -90,6 +95,7 @@ type Store struct {
 
 	advisories     map[string]*Advisory // keyed by TrackingID
 	cves           map[string]*CVE      // keyed by CVEID
+	kev            map[string]*KEVInfo  // CISA KEV catalog, keyed by upper-case CVEID
 	log            []LogEntry
 	rejectsThisRun int
 
@@ -210,6 +216,18 @@ func (s *Store) upsertCVE(c *CVE) {
 	s.mu.Unlock()
 }
 
+// setKEV replaces the CISA KEV catalog used to flag CVEs.
+func (s *Store) setKEV(cat map[string]*KEVInfo) {
+	s.mu.Lock()
+	s.kev = cat
+	s.mu.Unlock()
+}
+
+// kevFor returns the KEV entry for a CVE ID, or nil. Caller holds s.mu.
+func (s *Store) kevFor(id string) *KEVInfo {
+	return s.kev[strings.ToUpper(id)]
+}
+
 // snapshotStatus returns a copy safe to marshal outside the lock.
 func (s *Store) snapshotStatus() Status {
 	s.mu.RLock()
@@ -217,6 +235,12 @@ func (s *Store) snapshotStatus() Status {
 	st := s.status
 	st.AdvisoryCount = len(s.advisories)
 	st.CVECount = len(s.cves)
+	st.KEVLoaded = s.kev != nil
+	for id := range s.cves {
+		if s.kevFor(id) != nil {
+			st.KEVCount++
+		}
+	}
 	return st
 }
 
@@ -233,7 +257,14 @@ func (s *Store) snapshotAdvisories() []*Advisory {
 	defer s.mu.RUnlock()
 	out := make([]*Advisory, 0, len(s.advisories))
 	for _, a := range s.advisories {
-		out = append(out, a)
+		cp := *a
+		cp.KEVCount = 0
+		for _, id := range a.CVEIDs {
+			if s.kevFor(id) != nil {
+				cp.KEVCount++
+			}
+		}
+		out = append(out, &cp)
 	}
 	return out
 }
@@ -243,7 +274,9 @@ func (s *Store) snapshotCVEs() []*CVE {
 	defer s.mu.RUnlock()
 	out := make([]*CVE, 0, len(s.cves))
 	for _, c := range s.cves {
-		out = append(out, c)
+		cp := *c
+		cp.KEV = s.kevFor(c.CVEID)
+		out = append(out, &cp)
 	}
 	return out
 }
